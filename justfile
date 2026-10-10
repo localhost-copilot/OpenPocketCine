@@ -62,11 +62,11 @@ secrets:
 # ── Native production stack ─────────────────────────────────────────────────
 # Format shared Swift and iOS app sources.
 swift-format:
-    swift-format format --in-place --recursive Package.swift Sources Tests ios/OpenPocketCine ios/OpenPocketCineTests ios/OpenPocketCineUITests ios/OpenPocketCineWatch
+    swift-format format --in-place --recursive Package.swift Sources Tests ios/OpenPocketCine ios/OpenPocketCineTests ios/OpenPocketCineUITests ios/OpenPocketCineWatch ios/OpenPocketCineMacBridge
 
 # Lint shared Swift and iOS app sources.
 swift-lint:
-    swift-format lint --strict --recursive Package.swift Sources Tests ios/OpenPocketCine ios/OpenPocketCineTests ios/OpenPocketCineUITests ios/OpenPocketCineWatch
+    swift-format lint --strict --recursive Package.swift Sources Tests ios/OpenPocketCine ios/OpenPocketCineTests ios/OpenPocketCineUITests ios/OpenPocketCineWatch ios/OpenPocketCineMacBridge
 
 # Refresh the pinned Lucide catalogs in both shared native UI modules.
 icons-vendor:
@@ -177,12 +177,31 @@ android-perf-soak tag apk="Apps/Android/app/build/outputs/apk/perf/app-perf.apk"
 ios-feed-stress device seed="20260914" limit="300" record="0": ios-generate
     DEVICE='{{device}}' SEED='{{seed}}' LIMIT='{{limit}}' RECORD='{{record}}' bash tools/feed-stress-run.sh run
 
+# Build the Mac Catalyst app (unsigned) into .local/dd-mac; run it from Build/Products.
+mac-build: ios-generate
+    xcodebuild -project ios/OpenPocketCine.xcodeproj -scheme OpenPocketCine -destination 'platform=macOS,variant=Mac Catalyst' -derivedDataPath .local/dd-mac CODE_SIGNING_ALLOWED=NO build
+
+# Sign the Mac build with a local development identity and launch it. macOS keys
+# Local Network and Location grants to a stable signature; ad-hoc builds get denied.
+mac-run identity="Apple Development": mac-build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    app=.local/dd-mac/Build/Products/Debug-maccatalyst/OpenPocketCine.app
+    pkill -f "$app/Contents/MacOS/OpenPocketCine" || true
+    for item in "$app"/Contents/Frameworks/* "$app"/Contents/MacOS/*.dylib "$app"/Contents/PlugIns/*; do
+        [ -e "$item" ] && codesign --force --timestamp=none --sign "{{identity}}" "$item"
+    done
+    codesign --force --timestamp=none --sign "{{identity}}" \
+        --entitlements ios/OpenPocketCine/OpenPocketCineMac.entitlements "$app"
+    open "$app"
+
 # Build the watchOS companion for the simulator.
 watch-build: ios-generate
     xcodebuild -project ios/OpenPocketCine.xcodeproj -scheme OpenPocketCineWatch -destination 'generic/platform=watchOS Simulator' CODE_SIGNING_ALLOWED=NO build
 
 # Run all native production checks that do not require camera hardware.
 # Swift format lint remains optional until the existing tree is fully formatted.
+# The Mac Catalyst build is its own CI job (`just mac-build`) so it runs in parallel.
 native-check: swift-test relay-test ios-test ios-build watch-build
 
 # Format production Swift sources.

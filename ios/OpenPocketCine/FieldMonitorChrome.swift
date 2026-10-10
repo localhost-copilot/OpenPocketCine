@@ -448,7 +448,7 @@ struct FieldMonitorGauges: View {
                 .accessibilityHint(showsFPS ? "Shows signal strength" : "Shows feed frame rate")
                 .accessibilityIdentifier("monitor.telemetry.signal")
             }
-            if showsPower {
+            if showsPower, phonePercent >= 0 || !Self.isMac {
                 Self.gauge(
                     icon: .smartphone, value: phonePercent < 0 ? "—" : "\(phonePercent)%",
                     bars: 0, color: Self.batteryColor(phonePercent)
@@ -491,7 +491,17 @@ struct FieldMonitorGauges: View {
 
     private func updatePhone() {
         let value = UIDevice.current.batteryLevel
-        phonePercent = value < 0 ? -1 : Int((value * 100).rounded())
+        // A Mac without a battery reports level 0 (a running laptop never reads 0).
+        let unknown = Self.isMac && (value <= 0 || UIDevice.current.batteryState == .unknown)
+        phonePercent = value < 0 || unknown ? -1 : Int((value * 100).rounded())
+    }
+
+    private static var isMac: Bool {
+        #if targetEnvironment(macCatalyst)
+            true
+        #else
+            false
+        #endif
     }
 
     /// Multiview tiles: the camera battery pill without its glyph.

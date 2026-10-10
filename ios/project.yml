@@ -20,6 +20,7 @@ targets:
   OpenPocketCine:
     type: application
     platform: iOS
+    supportedDestinations: [iOS, macCatalyst]
     sources:
       - OpenPocketCine
     postBuildScripts:
@@ -38,6 +39,14 @@ targets:
       - target: OpenPocketCineWatch
         embed: true
         codeSign: true
+        destinationFilters: [iOS]
+      # CoreWLAN is not in the Catalyst SDK; the Mac app loads this AppKit bundle.
+      - target: OpenPocketCineMacBridge
+        embed: true
+        codeSign: true
+        destinationFilters: [macCatalyst]
+        copy:
+          destination: plugins
     settings:
       base:
         # The app shell (CoreBluetooth / Network / Hotspot glue) uses the Swift 5 language mode to
@@ -55,6 +64,8 @@ targets:
         # rewrites it in place (strips comments, retabs) and the build then fails with
         # "Entitlements file was modified during the build".
         CODE_SIGN_ENTITLEMENTS: OpenPocketCine/OpenPocketCine.entitlements
+        # Hotspot Configuration is iOS-only; the Mac app joins Wi-Fi through CoreWLAN.
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": OpenPocketCine/OpenPocketCineMac.entitlements
         GCC_PREPROCESSOR_DEFINITIONS: "$(inherited) CI_SILENCE_GL_DEPRECATION=1"
         OTHER_SWIFT_FLAGS: "$(inherited) -Xcc -DCI_SILENCE_GL_DEPRECATION"
         # Same team as OpenZCine — it already has the Hotspot Configuration capability.
@@ -89,6 +100,8 @@ targets:
         INFOPLIST_KEY_NSMotionUsageDescription: "OpenPocketCine uses headphone motion so AirPods can aim the gimbal."
         # iOS names the current Wi-Fi only to apps with precise location (Add setup › Wi-Fi).
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "OpenPocketCine uses your location only so iOS can tell it which Wi-Fi this iPhone is on, to offer that network when you add a camera's Wi-Fi setup. Your location is not stored or shared."
+        # macOS names Wi-Fi networks to CoreWLAN only with Location Services (Mac app).
+        INFOPLIST_KEY_NSLocationUsageDescription: "OpenPocketCine uses your location only so macOS can tell it which Wi-Fi this Mac is on and find your camera's Wi-Fi. Your location is not stored or shared."
         INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking: YES
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: "OpenPocketCine connects to cameras over local Wi-Fi to receive video and control them, and can share the live picture with nearby OpenPocketCine phones."
         INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "OpenPocketCine saves clips you choose to Photos."
@@ -97,6 +110,23 @@ targets:
     configFiles:
       Debug: OpenPocketCine/Frameio.xcconfig
       Release: OpenPocketCine/Frameio.xcconfig
+
+  OpenPocketCineMacBridge:
+    type: bundle
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - OpenPocketCineMacBridge
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        PRODUCT_BUNDLE_IDENTIFIER: com.opencapture.openpocketcine.macbridge
+        PRODUCT_NAME: OpenPocketCineMacBridge
+        DEVELOPMENT_TEAM: "4V4EGQ6LZA"
+        CODE_SIGN_STYLE: Automatic
+        SKIP_INSTALL: YES
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_NSPrincipalClass: OPCMacWiFiBridge
 
   OpenPocketCineTests:
     type: bundle.unit-test

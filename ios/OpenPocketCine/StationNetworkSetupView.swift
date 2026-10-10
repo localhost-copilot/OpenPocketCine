@@ -97,12 +97,7 @@ struct StationNetworkSetupView: View {
         .task {
             await refreshCurrentNetwork()
             // Networks this app configured before. iOS keeps other saved networks private.
-            let ssids = await withCheckedContinuation { continuation in
-                NEHotspotConfigurationManager.shared.getConfiguredSSIDs {
-                    continuation.resume(returning: $0)
-                }
-            }
-            configured = ssids.filter { !isCameraNetwork($0) }
+            configured = await WiFiJoiner.configuredSSIDs().filter { !isCameraNetwork($0) }
         }
         .task {
             while !Task.isCancelled {
@@ -375,10 +370,13 @@ struct StationNetworkSetupView: View {
                     body:
                         "A router, venue network or another device’s hotspot. Cameras and this iPhone join the same Wi-Fi.",
                     tag: "Best for studios and several cameras", landscape: landscape)
-                choice(
-                    .phoneHotspot, icon: .radio,
-                    body: "This iPhone’s Personal Hotspot. Works anywhere you have cellular.",
-                    tag: "Best on the move", landscape: landscape)
+                // A Mac has no Personal Hotspot for cameras to join.
+                #if !targetEnvironment(macCatalyst)
+                    choice(
+                        .phoneHotspot, icon: .radio,
+                        body: "This iPhone’s Personal Hotspot. Works anywhere you have cellular.",
+                        tag: "Best on the move", landscape: landscape)
+                #endif
             }
             // Equal-height tiles side by side.
             .fixedSize(horizontal: false, vertical: landscape)

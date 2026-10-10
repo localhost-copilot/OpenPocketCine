@@ -221,6 +221,24 @@ jobs:
       - name: Run native checks
         run: just native-check
 
+  mac:
+    name: Mac Catalyst
+    needs: changes
+    # Same constraints as `native`: hosted macOS only, skipped while the repo is private.
+    if: ${{ needs.changes.outputs.code == 'true' && !github.event.repository.private }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        with:
+          xcode-version: latest-stable
+      - name: Install native tooling
+        run: brew install just xcodegen || true
+      - name: Build Mac Catalyst app
+        run: just mac-build
+
   android:
     name: Android
     needs: changes
@@ -281,13 +299,13 @@ jobs:
 
   gate:
     name: CI gate
-    # The single required status check on `main` (name must stay "CI gate"). `native`,
+    # The single required status check on `main` (name must stay "CI gate"). `native`, `mac`,
     # `android`, and `handbook` are conditional, and a required check that never reports
     # leaves a pull request blocked forever — so this job always runs and collapses every
     # other job's result into one verdict. Path-filter skips and private-repo native/
     # android skips are success.
     if: always()
-    needs: [meta, changes, native, android, handbook]
+    needs: [meta, changes, native, mac, android, handbook]
     runs-on: ubuntu-latest
     steps:
       - name: Require every job to have passed or been deliberately skipped

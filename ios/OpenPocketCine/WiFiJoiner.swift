@@ -104,13 +104,16 @@ enum WiFiJoiner {
             } catch {
                 lastError = error
             }
-            let addresses = interfaceAddresses()
-            if CameraSoftAP.isPersonalHotspotHosting(addresses), !isCameraPathReady() {
-                journal(
-                    "wifi: Personal Hotspot is on (\(CameraSoftAP.describe(addresses))), stop joining"
-                )
-                throw JoinError.personalHotspot
-            }
+            // A Mac `bridge` is Internet Sharing or a VM network, not Personal Hotspot.
+            #if !targetEnvironment(macCatalyst)
+                let addresses = interfaceAddresses()
+                if CameraSoftAP.isPersonalHotspotHosting(addresses), !isCameraPathReady() {
+                    journal(
+                        "wifi: Personal Hotspot is on (\(CameraSoftAP.describe(addresses))), stop joining"
+                    )
+                    throw JoinError.personalHotspot
+                }
+            #endif
             let left = deadline.timeIntervalSinceNow
             guard CameraSoftAPSwitch.shouldRetryJoin(secondsLeft: left) else { throw lastError }
             // 5.8 GHz DFS: the AP may not beacon yet. Drop the config so the
@@ -126,6 +129,8 @@ enum WiFiJoiner {
     static func currentSSID() async -> String? {
         #if targetEnvironment(simulator)
             return nil
+        #elseif targetEnvironment(macCatalyst)
+            return MacWiFi.currentSSID
         #else
             return try? await awaitCallback(timeout: .seconds(3)) { completion in
                 NEHotspotNetwork.fetchCurrent { network in
@@ -142,6 +147,21 @@ enum WiFiJoiner {
         persist: Bool = false,
         timeout: Duration = .seconds(20)
     ) async throws {
+        #if targetEnvironment(macCatalyst)
+            // CoreWLAN picks WPA2/WPA3 from the scanned network; a join made in the
+            // macOS Wi-Fi menu is already on target and returns at once.
+            // Location lets CoreWLAN name networks; without it the bridge joins the
+            // camera's own access point by name.
+            await WiFiNameAccess.shared.request()
+            do {
+                try await MacWiFi.join(ssid: ssid, password: passphrase, byName: true)
+                journal("wifi: mac join \(ssid) ok")
+            } catch {
+                journal("wifi: mac join \(ssid) failed \(error.localizedDescription)")
+                throw JoinError.failed(error.localizedDescription)
+            }
+            return
+        #endif
         let config = NEHotspotConfiguration(ssid: ssid, passphrase: passphrase, isWEP: false)
         // Join-once drops the hotspot when the app leaves the foreground; saved
         // cameras need the config to survive Control Center / background.
@@ -209,7 +229,11 @@ enum WiFiJoiner {
     }
 
     static func leave(ssid: String) {
-        NEHotspotConfigurationManager.shared.removeConfiguration(forSSID: ssid)
+        #if targetEnvironment(macCatalyst)
+            MacWiFi.leave(ssid: ssid)
+        #else
+            NEHotspotConfigurationManager.shared.removeConfiguration(forSSID: ssid)
+        #endif
     }
 
     static func leave(ssids: [String]) {
@@ -233,12 +257,18 @@ enum WiFiJoiner {
         }
     }
 
+    /// Networks this app configured. macOS keeps its known networks in System Settings.
     static func configuredSSIDs() async -> [String] {
-        (try? await awaitCallback(timeout: .seconds(3)) { completion in
-            NEHotspotConfigurationManager.shared.getConfiguredSSIDs { ssids in
-                completion(.success(ssids))
-            }
-        }) ?? []
+        #if targetEnvironment(macCatalyst)
+            return []
+        #else
+            return
+                (try? await awaitCallback(timeout: .seconds(3)) { completion in
+                    NEHotspotConfigurationManager.shared.getConfiguredSSIDs { ssids in
+                        completion(.success(ssids))
+                    }
+                }) ?? []
+        #endif
     }
 
     /// NEHotspot callbacks have no Swift task cancellation contract. Resolve

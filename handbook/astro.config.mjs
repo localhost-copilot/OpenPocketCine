@@ -50,6 +50,7 @@ export default defineConfig({
           items: [
             { label: 'iOS', translations: { 'zh-TW': 'iOS 版' }, slug: 'apps/ios' },
             { label: 'Android', translations: { 'zh-TW': 'Android 版' }, slug: 'apps/android' },
+            { label: 'Mac (experimental)', translations: { 'zh-TW': 'Mac 版（實驗性）' }, slug: 'apps/macos' },
             { label: 'Multiview prototype', translations: { 'zh-TW': '多機畫面原型' }, slug: 'guides/multiview-prototype' },
           ],
         },

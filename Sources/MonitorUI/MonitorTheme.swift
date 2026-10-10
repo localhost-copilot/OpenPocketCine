@@ -7,7 +7,9 @@
     /// The Field Monitor visual language, shared by every native brand storefront.
     /// Pages are solid; floating chrome uses compositor-owned native material.
     public enum MonitorTheme {
-        public static let background = color(0x111213)
+        /// Also the Mac title bar colour (AppKit takes the hex).
+        public static let backgroundHex: UInt32 = 0x111213
+        public static let background = color(backgroundHex)
         public static let canvas = color(0x08090A)
         public static let surface = color(0x1A1B1C)
         public static let raised = color(0x222425)

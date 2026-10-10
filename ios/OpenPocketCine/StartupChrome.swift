@@ -116,6 +116,18 @@ enum StartupConnectionCopy {
         raw == localNetworkDenied || raw == bluetoothDenied
     }
 
+    /// The app's Settings page on iOS. Mac Catalyst has no such page, so open the
+    /// Privacy & Security pane that holds the denied switch.
+    static func settingsURL(for raw: String) -> URL? {
+        #if targetEnvironment(macCatalyst)
+            let pane = raw == bluetoothDenied ? "Privacy_Bluetooth" : "Privacy_LocalNetwork"
+            return URL(
+                string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")
+        #else
+            return URL(string: UIApplication.openSettingsURLString)
+        #endif
+    }
+
     static func friendly(_ raw: String) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return trimmed }

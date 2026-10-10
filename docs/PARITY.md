@@ -1608,3 +1608,29 @@ Bluetooth reconnect, matching both shells' Multiview. Android single-camera
 `completePairing` still accepts `00 06`; that is an open exception until the
 Android shell adopts the same retry. No physical iPhone or Android device was
 used for this change.
+
+## Mac Catalyst shell (experimental, 2026-10-10)
+
+The iOS shell also builds for Mac Catalyst (`just mac-build`) from the same
+sources. This is a Mac-only platform, not an operator-visible change to the
+iPhone or Android shells, so Android has no counterpart. macOS lacks
+`NEHotspotConfiguration`; an embedded AppKit bundle
+(`ios/OpenPocketCineMacBridge`) provides the current SSID, scan-and-join and
+disassociate through CoreWLAN, behind `#if targetEnvironment(macCatalyst)` in
+`WiFiJoiner` and `SharedWiFiPath`. Camera Wi-Fi and shared Wi-Fi (station mode)
+both use it; a manual join from the macOS Wi-Fi menu is accepted. Station
+addressing prefers the CoreWLAN Wi-Fi interface, then a connected wired `en`
+interface (never `169.254`), because Mac Wi-Fi is not always `en0`. Without
+Location the bridge joins only the camera access point by name (`networksetup`,
+password on its command line); the operator's network then needs a Wi-Fi menu
+join. Joins run on a dedicated queue and a `networksetup` join is cancellable.
+Exceptions: no Apple Watch remote, no Personal Hotspot setup (a Mac `bridge` is
+Internet Sharing or a VM), no app-configured network list, no app sandbox. Compile and launch only; no
+physical Mac camera session has been recorded for this build.
+Mac window chrome: Catalyst draws content under a transparent title bar, which
+put the traffic lights over Live View's lock and status row. The bridge removes
+`fullSizeContentView` so content starts below a title-less bar painted in the
+app's background colour (`MonitorTheme.backgroundHex`), reapplied to new
+windows and after full screen; minimum window size is 900×600. A Mac without a battery hides
+the phone battery gauge. Mac Open Settings opens the matching Privacy &
+Security pane.

@@ -33,7 +33,7 @@ struct ConnectionSetupView: View {
                     guard !model.isBusy else { return }
                     if case .failed(let reason) = model.session.phase {
                         if StartupConnectionCopy.opensSettings(reason),
-                            let url = URL(string: UIApplication.openSettingsURLString)
+                            let url = StartupConnectionCopy.settingsURL(for: reason)
                         {
                             rescanOnReturn = true
                             openURL(url)
